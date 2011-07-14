@@ -1117,9 +1117,88 @@
       }
     };
 
-    gl.quadraticCurveTo = function quadraticCurveTo(cp1x, cp1y, x, y) {};
+		gl.quadraticCurveTo = function quadraticCurveTo(cp1x, cp1y, x, y) {
+			if (!subPaths.length) {
+				gl.moveTo(x, y);
+			}
 
-    gl.bezierCurveTo = function bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y) {};
+			var subPath = subPaths[subPaths.length - 1];
+
+			// vertices are pushed at the front!
+			var currentX = subPath.verts[0];
+			var currentY = subPath.verts[1];
+
+			// From
+			// https://developer.mozilla.org/en/Canvas_tutorial/Drawing_shapes
+			var cp1x = currentX + 2.0 / 3.0 * (cp1x - currentX);
+			var cp1y = currentY + 2.0 / 3.0 * (cp1y - currentY);
+			var cp2x = cp1x + (x - currentX) / 3.0;
+			var cp2y = cp1y + (y - currentY) / 3.0;
+
+			// and now call cubic Bezier curve to function
+			gl.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y);
+		};
+
+		gl.bezierCurveTo = function bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y) {
+			var B1 = function(t) {
+				return t * t * t
+			};
+			var B2 = function(t) {
+				return 3 * t * t * (1 - t)
+			};
+			var B3 = function(t) {
+				return 3 * t * (1 - t) * (1 - t)
+			};
+			var B4 = function(t) {
+				return (1 - t) * (1 - t) * (1 - t)
+			};
+
+			var getBezier = function(t, C1, C2, C3, C4) {
+				var pos = {};
+				pos.x = C1.x * B1(t) + C2.x * B2(t) + C3.x * B3(t) + C4.x * B4(t);
+				pos.y = C1.y * B1(t) + C2.y * B2(t) + C3.y * B3(t) + C4.y * B4(t);
+				return pos;
+			};
+
+			if (!subPaths.length) {
+				// Create a new subpath if none currently exist
+				gl.moveTo(x, y);
+			}
+			var t = 0;
+
+			var subPath = subPaths[subPaths.length - 1];
+
+			var start = {
+				x : subPath.verts[0],
+				y : subPath.verts[1]
+			};
+			var cp1 = {
+				x : cp1x,
+				y : cp1y
+			};
+			var cp2 = {
+				x : cp2x,
+				y : cp2y
+			};
+			var end = {
+				x : x,
+				y : y
+			};
+
+			var lastPos = start;
+			var STEPS = 100;
+
+			for ( var i = STEPS; i >= 0; i--) {
+				t = (i / STEPS);
+				var pos = getBezier(t, start, cp1, cp2, end);
+				subPath.verts.push(pos.x, pos.y, lastPos.x, lastPos.y)
+				lastPos = pos;
+			}
+
+			// Create new subpath using the starting position of previous
+			// subpath
+			gl.moveTo(x, y);
+		};
 
     gl.arcTo = function arcTo() {};
 
